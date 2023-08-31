@@ -786,12 +786,13 @@ func (tn *ChainNode) QueryProposal(ctx context.Context, proposalID string) (*Pro
 // UpgradeProposal submits a software-upgrade governance proposal to the chain.
 func (tn *ChainNode) UpgradeProposal(ctx context.Context, keyName string, prop SoftwareUpgradeProposal) (string, error) {
 	command := []string{
-		"gov", "submit-proposal",
+		"gov", "submit-legacy-proposal",
 		"software-upgrade", prop.Name,
 		"--upgrade-height", strconv.FormatUint(prop.Height, 10),
 		"--title", prop.Title,
 		"--description", prop.Description,
 		"--deposit", prop.Deposit,
+		"--gas", "300000",
 	}
 
 	if prop.Info != "" {
