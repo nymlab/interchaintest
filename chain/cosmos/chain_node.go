@@ -390,6 +390,38 @@ func (tn *ChainNode) TxCommand(keyName string, command ...string) []string {
 	)...)
 }
 
+// ExecDIDCreateTX requires not to use gas-prices
+func (tn *ChainNode) ExecDIDCreateTx(ctx context.Context, keyName string, command ...string) (string, error) {
+	tn.lock.Lock()
+	defer tn.lock.Unlock()
+
+	command = append([]string{"tx"}, command...)
+	execCmd := tn.NodeCommand(append(command,
+		"--from", keyName,
+		"--gas-adjustment", fmt.Sprint(tn.Chain.Config().GasAdjustment),
+		"--keyring-backend", keyring.BackendTest,
+		"--output", "json",
+		"-y",
+	)...)
+
+	stdout, _, err := tn.Exec(ctx, execCmd, nil)
+	if err != nil {
+		return "", err
+	}
+	output := CosmosTx{}
+	err = json.Unmarshal([]byte(stdout), &output)
+	if err != nil {
+		return "", err
+	}
+	if output.Code != 0 {
+		return output.TxHash, fmt.Errorf("transaction failed with code %d: %s", output.Code, output.RawLog)
+	}
+	if err := testutil.WaitForBlocks(ctx, 2, tn); err != nil {
+		return "", err
+	}
+	return output.TxHash, nil
+}
+
 // ExecTx executes a transaction, waits for 2 blocks if successful, then returns the tx hash.
 func (tn *ChainNode) ExecTx(ctx context.Context, keyName string, command ...string) (string, error) {
 	tn.lock.Lock()
@@ -854,6 +886,10 @@ func (tn *ChainNode) UnsafeResetAll(ctx context.Context) error {
 	return err
 }
 
+func (tn *ChainNode) ContainerId() string {
+	return tn.containerID
+}
+
 func (tn *ChainNode) CreateNodeContainer(ctx context.Context) error {
 	chainCfg := tn.Chain.Config()
 	cmd := []string{chainCfg.Bin, "start", "--home", tn.HomeDir(), "--x-crisis-skip-assert-invariants"}
@@ -1078,6 +1114,13 @@ func (tn *ChainNode) Exec(ctx context.Context, cmd []string, env []string) ([]by
 	}
 	res := job.Run(ctx, cmd, opts)
 	return res.Stdout, res.Stderr, res.Err
+}
+
+func (tn *ChainNode) Logger() *zap.Logger {
+	return tn.log.With(
+		zap.String("chain_id", tn.Chain.Config().ChainID),
+		zap.String("test", tn.TestName),
+	)
 }
 
 func (tn *ChainNode) logger() *zap.Logger {
