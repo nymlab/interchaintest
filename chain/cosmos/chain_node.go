@@ -391,7 +391,7 @@ func (tn *ChainNode) TxCommand(keyName string, command ...string) []string {
 }
 
 // ExecDIDCreateTX requires not to use gas-prices
-func (tn *ChainNode) ExecDIDCreateTx(ctx context.Context, keyName string, command ...string) (string, error) {
+func (tn *ChainNode) ExecCheqdTx(ctx context.Context, keyName string, command ...string) (string, error) {
 	tn.lock.Lock()
 	defer tn.lock.Unlock()
 
@@ -688,7 +688,7 @@ func (tn *ChainNode) StoreContract(ctx context.Context, keyName string, fileName
 		return "", fmt.Errorf("writing contract file to docker volume: %w", err)
 	}
 
-	if _, err := tn.ExecTx(ctx, keyName, "wasm", "store", path.Join(tn.HomeDir(), file)); err != nil {
+	if _, err := tn.ExecTx(ctx, keyName, "wasm", "store", path.Join(tn.HomeDir(), file), "--gas", "2000000"); err != nil {
 		return "", err
 	}
 
@@ -731,6 +731,8 @@ func (tn *ChainNode) InstantiateContract(ctx context.Context, keyName string, co
 		return "", err
 	}
 
+	fmt.Println("instantiation res: ", contactsRes)
+
 	contractAddress := contactsRes.Contracts[len(contactsRes.Contracts)-1]
 	return contractAddress, nil
 }
@@ -753,6 +755,7 @@ func (tn *ChainNode) QueryContract(ctx context.Context, contractAddress string, 
 	if err != nil {
 		return err
 	}
+	fmt.Println("QueryContract: ", stdout)
 	err = json.Unmarshal([]byte(stdout), response)
 	return err
 }
